@@ -1,49 +1,63 @@
 import Foundation
 
-struct BibleData {
-    static let proverbs: [Int: [String]] = [
-        // --- 箴言第 20 章 完整版 ---
-        20: [
-            "20:1 酒能使人亵慢，浓酒使人喧嚷；凡因酒错误的，都没有智慧。",
-            "20:2 王的威吓如同狮子吼叫；惹动他发怒的是自害己命。",
-            "20:3 远离纷争是人的尊荣；愚妄人都爱争闹。",
-            "20:4 懒惰人因冬寒不肯耕种，到收割的时候，他必讨饭而无所得。",
-            "20:5 人心怀藏谋略，好像深水，惟明哲人才能汲引出来。",
-            "20:6 人多述说自己的仁慈，但忠信人谁能遇着呢？",
-            "20:7 行为纯正的义人，他的子孙是有福的！",
-            "20:8 王坐在审判的位上，以眼目驱散诸恶。",
-            "20:9 谁能说，我洁净了我的心，我脱净了我的罪？",
-            "20:10 两样的法码，两样的升斗，都为耶和华所憎恶。",
-            "20:11 孩童的动作是洁净，是正直，都显明他的本性。",
-            "20:12 能听的耳，能看的眼，都是耶和华所造的。",
-            "20:13 不要贪睡，免致贫穷；眼要睁开，你就吃饱。",
-            "20:14 买物的说：不好，不好；及至买去，便自夸耀。",
-            "20:15 有金子和许多珍珠，惟有知识的嘴乃为贵重的珍宝。",
-            "20:16 谁为生人作保，就拿谁的衣服；谁为外女作保，谁就要承当。",
-            "20:17 以欺诈得来的食物，人吃甘甜；日后，他的口必充满尘沙。",
-            "20:18 计谋都凭筹划立定；打仗要凭智谋。",
-            "20:19 往来传舌的，泄漏密事；大张嘴的，不可与他结交。",
-            "20:20 咒骂父母的，他的灯必灭，变为漆黑的幽暗。",
-            "20:21 起初速得的产业，终久却不为福。",
-            "20:22 你不要说，我要以恶报恶；要等候耶和华，他必拯救你。",
-            "20:23 两样的法码为耶和华所憎恶；诡诈的天平也为不善。",
-            "20:24 人的脚步为耶和华所定；人岂能明白自己的路呢？",
-            "20:25 人冒失说，这是圣物，许愿之后才查问，就是自陷网罗。",
-            "20:26 智慧的王驱散恶人，用碌碡碾他们。",
-            "20:27 人的灵是耶和华的灯，鉴察人的心腹。",
-            "20:28 王因仁慈和诚实得以保全他的位，也因仁慈立稳。",
-            "20:29 强壮乃少年人的荣耀；白发为老年人的尊荣。",
-            "20:30 鞭伤除净人的罪恶；责打能入人的心腹。"
-        ]
-        // 之后你可以按这个格式补全 1-31 章
-    ]
+struct Proverb: Identifiable {
+    let id = UUID()
+    let chapter: Int
+    let verse: Int
+    let text: String
+}
 
-    static func getTodayVerses() -> [String] {
-        let day = Calendar.current.component(.day, from: Date())
-        return proverbs[day] ?? ["今日经文正在录入中，敬请期待！"]
+struct BibleData {
+    // 1. 获取今天需要显示的章节数组
+    static func getTodayChapterNumbers() -> [Int] {
+        let calendar = Calendar.current
+        let now = Date()
+        let day = calendar.component(.day, from: now)
+        
+        // 获取本月天数范围
+        let range = calendar.range(of: .day, in: .month, for: now)
+        let lastDayOfMonth = range?.count ?? 31
+        
+        // 如果是本月最后一天且不满31号，则返回从今天到31的所有章节
+        if day == lastDayOfMonth && day < 31 {
+            return Array(day...31)
+        } else {
+            return [day]
+        }
     }
-    
-    static func getTodayDay() -> Int {
-        return Calendar.current.component(.day, from: Date())
+
+    // 2. 从文本文件读取并筛选对应的经文
+    static func getTodayVerses() -> [Proverb] {
+        let chapterNumbers = getTodayChapterNumbers()
+        var results: [Proverb] = []
+        
+        guard let path = Bundle.main.path(forResource: "Proverbs", ofType: "txt"),
+              let content = try? String(contentsOfFile: path, encoding: .utf8) else {
+            return [Proverb(chapter: 0, verse: 0, text: "经文文件 Proverbs.txt 丢失")]
+        }
+        
+        let lines = content.components(separatedBy: .newlines)
+        
+        for line in lines {
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+            if trimmedLine.isEmpty { continue }
+            
+            // 假设格式为 "章:节 经文"
+            let parts = trimmedLine.components(separatedBy: " ")
+            if parts.count >= 2 {
+                let ref = parts[0].components(separatedBy: ":")
+                if ref.count == 2,
+                   let ch = Int(ref[0]),
+                   let ve = Int(ref[1]) {
+                    
+                    // 如果该行章节在我们需要显示的列表中
+                    if chapterNumbers.contains(ch) {
+                        let text = parts[1...].joined(separator: " ")
+                        results.append(Proverb(chapter: ch, verse: ve, text: text))
+                    }
+                }
+            }
+        }
+        return results
     }
 }
