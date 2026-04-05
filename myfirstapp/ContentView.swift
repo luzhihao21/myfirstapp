@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 
+// 声明全局播放器
 var audioPlayer: AVAudioPlayer?
 
 struct ContentView: View {
@@ -10,13 +11,16 @@ struct ContentView: View {
     @State private var wheelRotation: Double = 0
     @State private var fontSize: Int = 20
     
-    // 获取今日经文数据
+    // 用于判断方向的旧值记录
+    @State private var lastRotation: Double = 0
+    @State private var lastFontSize: Int = 20
+    
     @State private var todayProverbs: [Proverb] = BibleData.getTodayVerses()
     
     let fontSizeOptions = [16, 18, 20, 22, 24, 26, 28]
     let sliceColors: [Color] = [.black, .red, .orange, .green, .blue, .purple, .gray]
 
-    // 动态日期计算
+    // 动态时间计算
     var currentTime: String {
         let f = DateFormatter(); f.dateFormat = "HH:mm"; return f.string(from: Date())
     }
@@ -27,7 +31,6 @@ struct ContentView: View {
         let f = DateFormatter(); f.locale = Locale(identifier: "zh_CN"); f.dateFormat = "EEEE"; return f.string(from: Date())
     }
     
-    // 动态标题计算
     var dynamicTitle: String {
         let chapters = Set(todayProverbs.map { $0.chapter }).sorted()
         if chapters.isEmpty { return "箴言" }
@@ -43,7 +46,7 @@ struct ContentView: View {
             VStack(spacing: 20) {
                 // 1. 时间显示
                 HStack(alignment: .center, spacing: 12) {
-                    Text("2025").font(.system(size: 10, weight: .bold)).foregroundColor(.gray).frame(width: 12)
+                    Text("2026").font(.system(size: 10, weight: .bold)).foregroundColor(.gray).frame(width: 12)
                     Text(currentTime).font(.system(size: 55, weight: .heavy, design: .rounded))
                     VStack(alignment: .leading, spacing: 0) {
                         Text(todayDateString).font(.headline)
@@ -62,9 +65,7 @@ struct ContentView: View {
 
                 // 3. 经文显示区
                 VStack(spacing: 12) {
-                    Text(dynamicTitle)
-                        .font(.headline)
-                        .foregroundColor(.red)
+                    Text(dynamicTitle).font(.headline).foregroundColor(.red)
                     
                     ScrollView {
                         VStack(alignment: .leading, spacing: 15) {
@@ -77,7 +78,7 @@ struct ContentView: View {
                         }
                         .padding()
                     }
-                    .frame(height: 350) // 调高一点以应对多章内容
+                    .frame(height: 350)
                     .background(Color.gray.opacity(0.05))
                     .cornerRadius(12)
                 }
@@ -85,8 +86,11 @@ struct ContentView: View {
 
                 // 4. 控制面板
                 HStack(spacing: 0) {
-                    ColorWheelView(selectedColor: $selectedColor, isMixedMode: $isMixedMode, wheelRotation: $wheelRotation, sliceColors: sliceColors, onSelect: { playSound() })
-                        .frame(maxWidth: .infinity)
+                    // 转盘逻辑：在组件内部处理方向判断并传出音频名
+                    ColorWheelView(selectedColor: $selectedColor, isMixedMode: $isMixedMode, wheelRotation: $wheelRotation, lastRotation: $lastRotation, sliceColors: sliceColors) { soundName in
+                        playSound(named: soundName)
+                    }
+                    .frame(maxWidth: .infinity)
 
                     VStack(spacing: 5) {
                         Text("字号").font(.caption2).foregroundColor(.secondary)
@@ -100,7 +104,14 @@ struct ContentView: View {
                 .padding(.bottom, 40)
             }
         }
-        .onChange(of: fontSize) { _ in playSound() }
+        // 字号改变时的音频逻辑
+        .onChange(of: fontSize) { oldValue, newValue in
+            if newValue > oldValue {
+                playSound(named: "lion_sound") // 变大：狮子吼
+            } else {
+                playSound(named: "cat_sound")  // 变小：猫叫
+            }
+        }
         .onAppear {
             withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
                 isAnimating = true
@@ -108,8 +119,8 @@ struct ContentView: View {
         }
     }
 
-    func playSound() {
-        guard let path = Bundle.main.path(forResource: "lion_sound", ofType: "mp3") else { return }
+    func playSound(named soundName: String) {
+        guard let path = Bundle.main.path(forResource: soundName, ofType: "mp3") else { return }
         let url = URL(fileURLWithPath: path)
         do {
             audioPlayer = try AVAudioPlayer(contentsOf: url)
@@ -118,13 +129,13 @@ struct ContentView: View {
     }
 }
 
-// 颜色转盘组件 (保持不变)
 struct ColorWheelView: View {
     @Binding var selectedColor: Color
     @Binding var isMixedMode: Bool
     @Binding var wheelRotation: Double
+    @Binding var lastRotation: Double
     let sliceColors: [Color]
-    var onSelect: () -> Void
+    var onSelect: (String) -> Void
 
     var body: some View {
         VStack(spacing: 5) {
@@ -134,12 +145,18 @@ struct ColorWheelView: View {
                     SectorShape(startAngle: Angle(degrees: Double(i) * 360/7), endAngle: Angle(degrees: Double(i+1) * 360/7))
                         .fill(i == 6 ? AnyShapeStyle(AngularGradient(colors: [.red, .blue, .green, .red], center: .center)) : AnyShapeStyle(sliceColors[i]))
                         .onTapGesture {
+                            let targetRotation = -Double(i) * 360/7 - 180/7
+                            
+                            // 判断旋转方向 (顺时针旋转角度会减小，逆时针增大)
+                            // 在转盘交互中，我们根据目标角度与当前角度的差值来判断
+                            let soundEffect = targetRotation < wheelRotation ? "lion_sound" : "cat_sound"
+                            
                             withAnimation(.spring()) {
-                                wheelRotation = -Double(i) * 360/7 - 180/7
+                                wheelRotation = targetRotation
                                 if i < 6 { isMixedMode = false; selectedColor = sliceColors[i] }
                                 else { isMixedMode = true }
                             }
-                            onSelect()
+                            onSelect(soundEffect)
                         }
                 }
             }
