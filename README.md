@@ -34,3 +34,5 @@
 - **Interactive UI:** 使用了自定义的 `SectorShape` 构建交互式颜色转盘。
 ## アプリのスクリーンショット  👇
 https://github.com/luzhihao21/myfirstapp/issues/1#issue-4221826337
+## 動画 👇
+https://youtube.com/shorts/WecKpyPaeEw?si=DcPze_0BTX4p6EIn
