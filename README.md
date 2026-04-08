@@ -32,3 +32,4 @@
 ## 📖 逻辑亮点 / Logic Highlights / 実装のポイント
 - **Direction Detection:** 实现了一个对比逻辑，通过记录 `oldValue` 与 `newValue` 来感知用户的操作趋势（变大/变小，顺时针/逆时针），从而触发差异化音效。
 - **Interactive UI:** 使用了自定义的 `SectorShape` 构建交互式颜色转盘。
+https://github.com/luzhihao21/myfirstapp/issues/1#issue-4221826337
